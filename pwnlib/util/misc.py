@@ -3,19 +3,22 @@ from __future__ import division
 import base64
 import errno
 import os
-import platform
 import re
+import signal
 import six
 import socket
 import stat
 import string
+import subprocess
+import sys
+import tempfile
 
-import six
-
+from pwnlib import atexit
 from pwnlib.context import context
 from pwnlib.log import getLogger
 from pwnlib.util import fiddling
 from pwnlib.util import lists
+from pwnlib.util import packing
 
 log = getLogger(__name__)
 
@@ -131,7 +134,7 @@ def write(path, data = b'', create_dir = False, mode = 'w'):
     with open(path, mode) as f:
         f.write(data)
 
-def which(name, all = False):
+def which(name, all = False, path=None):
     """which(name, flags = os.X_OK, all = False) -> str or str set
 
     Works as the system command ``which``; searches $PATH for ``name`` and
@@ -149,9 +152,10 @@ def which(name, all = False):
       else the first location or :const:`None` if not found.
 
     Example:
-      >>> which('sh')
-      '/bin/sh'
-"""
+
+        >>> which('sh') # doctest: +ELLIPSIS
+        '.../bin/sh'
+    """
     # If name is a path, do not attempt to resolve it.
     if os.path.sep in name:
         return name
@@ -159,7 +163,7 @@ def which(name, all = False):
     isroot = os.getuid() == 0
     out = set()
     try:
-        path = os.environ['PATH']
+        path = path or os.environ['PATH']
     except KeyError:
         log.exception('Environment variable $PATH is not set')
     for p in path.split(os.pathsep):
@@ -181,8 +185,65 @@ def which(name, all = False):
     else:
         return None
 
-def run_in_new_terminal(command, terminal = None, args = None):
-    """run_in_new_terminal(command, terminal = None) -> None
+
+def normalize_argv_env(argv, env, log, level=2):
+    #
+    # Validate argv
+    #
+    # - Must be a list/tuple of strings
+    # - Each string must not contain '\x00'
+    #
+    argv = argv or []
+    if isinstance(argv, (six.text_type, six.binary_type)):
+        argv = [argv]
+
+    if not isinstance(argv, (list, tuple)):
+        log.error('argv must be a list or tuple: %r' % argv)
+
+    if not all(isinstance(arg, (six.text_type, bytes, bytearray)) for arg in argv):
+        log.error("argv must be strings or bytes: %r" % argv)
+
+    # Create a duplicate so we can modify it
+    argv = list(argv)
+
+    for i, oarg in enumerate(argv):
+        arg = packing._need_bytes(oarg, level, 0x80)  # ASCII text is okay
+        if b'\x00' in arg[:-1]:
+            log.error('Inappropriate nulls in argv[%i]: %r' % (i, oarg))
+        argv[i] = bytearray(arg.rstrip(b'\x00'))
+
+    #
+    # Validate environment
+    #
+    # - Must be a dictionary of {string:string}
+    # - No strings may contain '\x00'
+    #
+
+    # Create a duplicate so we can modify it safely
+    env2 = []
+    if hasattr(env, 'items'):
+        env_items = env.items()
+    else:
+        env_items = env
+    if env:
+        for k,v in env_items:
+            if not isinstance(k, (bytes, six.text_type)):
+                log.error('Environment keys must be strings: %r' % k)
+            if not isinstance(k, (bytes, six.text_type)):
+                log.error('Environment values must be strings: %r=%r' % (k,v))
+            k = packing._need_bytes(k, level, 0x80)  # ASCII text is okay
+            v = packing._need_bytes(v, level, 0x80)  # ASCII text is okay
+            if b'\x00' in k[:-1]:
+                log.error('Inappropriate nulls in env key: %r' % (k))
+            if b'\x00' in v[:-1]:
+                log.error('Inappropriate nulls in env value: %r=%r' % (k, v))
+            env2.append((bytearray(k.rstrip(b'\x00')), bytearray(v.rstrip(b'\x00'))))
+
+    return argv, env2 or env
+
+
+def run_in_new_terminal(command, terminal=None, args=None, kill_at_exit=True, preexec_fn=None):
+    """run_in_new_terminal(command, terminal=None, args=None, kill_at_exit=True, preexec_fn=None) -> int
 
     Run a command in a new terminal.
 
@@ -190,21 +251,26 @@ def run_in_new_terminal(command, terminal = None, args = None):
         - If ``context.terminal`` is set it will be used.
           If it is an iterable then ``context.terminal[1:]`` are default arguments.
         - If a ``pwntools-terminal`` command exists in ``$PATH``, it is used
-        - If ``$TERM_PROGRAM`` is set, that is used.
-        - If X11 is detected (by the presence of the ``$DISPLAY`` environment
-          variable), ``x-terminal-emulator`` is used.
         - If tmux is detected (by the presence of the ``$TMUX`` environment
           variable), a new pane will be opened.
         - If GNU Screen is detected (by the presence of the ``$STY`` environment
           variable), a new screen will be opened.
+        - If ``$TERM_PROGRAM`` is set, that is used.
+        - If X11 is detected (by the presence of the ``$DISPLAY`` environment
+          variable), ``x-terminal-emulator`` is used.
         - If WSL (Windows Subsystem for Linux) is detected (by the presence of
           a ``wsl.exe`` binary in the ``$PATH`` and ``/proc/sys/kernel/osrelease``
           containing ``Microsoft``), a new ``cmd.exe`` window will be opened.
+
+    If `kill_at_exit` is :const:`True`, try to close the command/terminal when the
+    current process exits. This may not work for all terminal types.
 
     Arguments:
         command (str): The command to run.
         terminal (str): Which terminal to use.
         args (list): Arguments to pass to the terminal
+        kill_at_exit (bool): Whether to close the command/terminal on process exit.
+        preexec_fn (callable): Callable to invoke before exec().
 
     Note:
         The command is opened with ``/dev/null`` for stdin, stdout, stderr.
@@ -235,7 +301,7 @@ def run_in_new_terminal(command, terminal = None, args = None):
             is_wsl = False
             if os.path.exists('/proc/sys/kernel/osrelease'):
                 with open('/proc/sys/kernel/osrelease', 'rb') as f:
-                    is_wsl = b'Microsoft' in f.read()
+                    is_wsl = b'icrosoft' in f.read()
             if is_wsl and which('cmd.exe') and which('wsl.exe') and which('bash.exe'):
                 terminal = 'cmd.exe'
                 args     = ['/c', 'start', 'bash.exe', '-c']
@@ -248,6 +314,12 @@ def run_in_new_terminal(command, terminal = None, args = None):
     if isinstance(args, tuple):
         args = list(args)
 
+    # When not specifying context.terminal explicitly, we used to set these flags above.
+    # However, if specifying terminal=['tmux', 'splitw', '-h'], we would be lacking these flags.
+    # Instead, set them here and hope for the best.
+    if terminal == 'tmux':
+        args += ['-F' '#{pane_pid}', '-P']
+
     argv = [which(terminal)] + args
 
     if isinstance(command, six.string_types):
@@ -255,23 +327,49 @@ def run_in_new_terminal(command, terminal = None, args = None):
             log.error("Cannot use commands with semicolon.  Create a script and invoke that directly.")
         argv += [command]
     elif isinstance(command, (list, tuple)):
-        if any(';' in c for c in command):
-            log.error("Cannot use commands with semicolon.  Create a script and invoke that directly.")
-        argv += list(command)
+        # Dump the full command line to a temporary file so we can be sure that
+        # it is parsed correctly, and we do not need to account for shell expansion
+        script = '''
+#!{executable!s}
+import os
+os.execve({argv0!r}, {argv!r}, os.environ)
+'''
+        script = script.format(executable=sys.executable,
+                               argv=command,
+                               argv0=which(command[0]))
+        script = script.lstrip()
+
+        log.debug("Created script for new terminal:\n%s" % script)
+
+        with tempfile.NamedTemporaryFile(delete=False, mode='wt+') as tmp:
+          tmp.write(script)
+          tmp.flush()
+          os.chmod(tmp.name, 0o700)
+          argv += [tmp.name]
+
 
     log.debug("Launching a new terminal: %r" % argv)
 
-    pid = os.fork()
+    stdin = stdout = stderr = open(os.devnull, 'r+b')
+    if terminal == 'tmux':
+        stdout = subprocess.PIPE
 
-    if pid == 0:
-        # Closing the file descriptors makes everything fail under tmux on OSX.
-        if platform.system() != 'Darwin':
-            devnull = open(os.devnull, 'r+b')
-            os.dup2(devnull.fileno(), 0)
-            os.dup2(devnull.fileno(), 1)
-            os.dup2(devnull.fileno(), 2)
-        os.execv(argv[0], argv)
-        os._exit(1)
+    p = subprocess.Popen(argv, stdin=stdin, stdout=stdout, stderr=stderr, preexec_fn=preexec_fn)
+
+    if terminal == 'tmux':
+        out, _ = p.communicate()
+        pid = int(out)
+    else:
+        pid = p.pid
+
+    if kill_at_exit:
+        def kill():
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except OSError:
+                pass
+
+        atexit.register(kill)
 
     return pid
 

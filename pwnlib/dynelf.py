@@ -62,7 +62,7 @@ from pwnlib.elf import constants
 from pwnlib.log import getLogger
 from pwnlib.memleak import MemLeak
 from pwnlib.util.fiddling import enhex
-from pwnlib.util.packing import unpack
+from pwnlib.util.packing import unpack, _need_bytes
 from pwnlib.util.web import wget
 
 log    = getLogger(__name__)
@@ -75,7 +75,7 @@ def sysv_hash(symbol):
     """
     h = 0
     g = 0
-    for c in bytearray(context._encode(symbol)):
+    for c in bytearray(_need_bytes(symbol, 4, 0x80)):
         h = (h << 4) + c
         g = h & 0xf0000000
         h ^= (g >> 24)
@@ -87,7 +87,7 @@ def gnu_hash(s):
 
     Function used to generated GNU-style hashes for strings.
     """
-    s = bytearray(context._encode(s))
+    s = bytearray(_need_bytes(s, 4, 0x80))
     h = 5381
     for c in s:
         h = h * 33 + c
@@ -497,7 +497,7 @@ class DynELF(object):
         Returns:
             An ELF object, or None.
         """
-        libc = 'libc.so'
+        libc = b'libc.so'
 
         with self.waitfor('Downloading libc'):
             dynlib = self._dynamic_load_dynelf(libc)
@@ -537,6 +537,9 @@ class DynELF(object):
 
         if lib == 'libc':
             lib = 'libc.so'
+
+        if symb:
+            symb = _need_bytes(symb, min_wrong=0x80)
 
         #
         # Get a pretty name for the symbol to show the user
@@ -637,12 +640,14 @@ class DynELF(object):
         while leak.field(cur, LinkMap.l_prev):
             cur = leak.field(cur, LinkMap.l_prev)
 
+        libname = _need_bytes(libname, 2, 0x80)
+
         while cur:
             self.status("link_map entry %#x" % cur)
             p_name = leak.field(cur, LinkMap.l_name)
             name   = leak.s(p_name)
 
-            if libname.encode('utf-8') in name:
+            if libname in name:
                 break
 
             if name:
@@ -741,7 +746,6 @@ class DynELF(object):
 
                 # Leak the name of the function from the symbol table
                 name = leak.s(strtab + leak.field(sym, Sym.st_name))
-                name = name.decode('utf-8')
 
                 # Make sure it matches the name of the symbol we were looking for.
                 if name == symb:
@@ -749,7 +753,7 @@ class DynELF(object):
                     addr = libbase + leak.field(sym, Sym.st_value)
                     return addr
 
-                self.status("%s (hash collision)" % name)
+                self.status("%r (hash collision)" % name)
 
             # The name did not match what we were looking for, or we assume
             # it did not since it was not a function.
@@ -825,7 +829,6 @@ class DynELF(object):
                 # Check for collision on hash values
                 sym  = symtab + sizeof(Sym) * (ndx + i)
                 name = leak.s(strtab + leak.field(sym, Sym.st_name))
-                name = name.decode('utf-8')
 
                 if name == symb:
                     # No collision, get offset and calculate address
@@ -833,7 +836,7 @@ class DynELF(object):
                     addr   = offset + libbase
                     return addr
 
-                self.status("%s (hash collision)" % name)
+                self.status("%r (hash collision)" % name)
 
             # Collision or no match, continue to the next item
             i += 1
@@ -969,12 +972,12 @@ class DynELF(object):
             memsz += (page_size - (memsz % page_size)) % page_size
             pages[vaddr] = leak.n(vaddr, memsz)
 
-        if libs :
-            for lib_name in self.bases() :
-                if len(lib_name) == 0 :
+        if libs:
+            for lib_name in self.bases():
+                if len(lib_name) == 0:
                     continue
                 dyn_lib = self._dynamic_load_dynelf(lib_name)
-                if dyn_lib is not None :
+                if dyn_lib is not None:
                     pages.update(dyn_lib.dump(readonly = readonly))
 
         return pages

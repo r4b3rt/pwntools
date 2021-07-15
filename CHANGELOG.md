@@ -9,9 +9,15 @@ The table below shows which release corresponds to each branch, and what date th
 
 | Version          | Branch   | Release Date           |
 | ---------------- | -------- | ---------------------- |
-| [4.4.0](#440)    | `dev`    | Sep 1, 2020 (planned)
-| [4.3.0](#430)    | `beta`   | Aug 1, 2020 (planned)
-| [4.2.0](#420)    | `stable` | Jul 3, 2020 (planned)
+| [4.8.0](#480)    | `dev`    |
+| [4.7.0](#470)    | `beta`   |
+| [4.6.0](#460)    | `stable` | Jul 12, 2021
+| [4.5.1](#451)    |          | May 30, 2021
+| [4.5.0](#450)    |          | Apr 30, 2021
+| [4.4.0](#440)    |          | Mar 29, 2021
+| [4.3.1](#431)    |          | Nov 29, 2020
+| [4.3.0](#430)    |          | Oct 20, 2020
+| [4.2.0](#420)    |          | Jul 3, 2020
 | [4.1.7](#417)    |          | Jun 30, 2020
 | [4.1.5](#415)    |          | Jun 27, 2020
 | [4.1.4](#414)    |          | Jun 26, 2020
@@ -55,8 +61,106 @@ The table below shows which release corresponds to each branch, and what date th
 | [3.0.0](#300)    |          | Aug 20, 2016
 | [2.2.0](#220)    |          | Jan 5, 2015
 
-## 4.4.0 (`dev`)
+## 4.8.0 (`dev`)
 
+- [#1922][1922] Fix logic in `wait_for_debugger`
+
+[1922]: https://github.com/Gallopsled/pwntools/pull/1922
+
+## 4.7.0 (`beta`)
+
+- [#1733][1733] Update libc headers -> more syscalls available!
+- [#1876][1876] add `self.message` and change `sys.exc_type` to `sys.exec_info()` in PwnlibException
+- [#1877][1877] encoders error message handles when `avoid` is bytes in python3
+- [#1891][1891] Keep ROP gadgets when setting registers via setattr/call
+- [#1892][1892] Silence SIGPIPE error for "pwn phd"
+- [#1893][1893] Fix bytes warning in "pwn cyclic"
+- [#1897][1897] Add basic support for RISC-V
+- [#1903][1903] Add zsh completion script
+- [#1904][1904] Add bash completion script
+- [#1906][1906] Defer import of several modules to save on startup time
+- [#1921][1921] Add basic support for the bare-metal ARM specific toolchain
+
+[1733]: https://github.com/Gallopsled/pwntools/pull/1733
+[1876]: https://github.com/Gallopsled/pwntools/pull/1876
+[1877]: https://github.com/Gallopsled/pwntools/pull/1877
+[1891]: https://github.com/Gallopsled/pwntools/pull/1891
+[1892]: https://github.com/Gallopsled/pwntools/pull/1892
+[1893]: https://github.com/Gallopsled/pwntools/pull/1893
+[1897]: https://github.com/Gallopsled/pwntools/pull/1897
+[1903]: https://github.com/Gallopsled/pwntools/pull/1903
+[1904]: https://github.com/Gallopsled/pwntools/pull/1904
+[1906]: https://github.com/Gallopsled/pwntools/pull/1906
+[1921]: https://github.com/Gallopsled/pwntools/pull/1921
+
+## 4.6.0 (`stable`)
+
+- [#1429][1429] Add a mechanism for ret2csu (originally #1138)
+- [#1566][1566] Add `ignore_config` argument to `pwnlib.tubes.ssh` and improve `allow_agent` implementation
+- [#1652][1652] Add `process.readmem` and `process.writemem`
+- [#1739][1739] Add/fix shellcraft.linux.kill() / shellcraft.linux.killparent()
+- [#1746][1746] Prefer Python3 over Python2 for spawning remote processes over SSH
+- [#1751][1751] Fix process() with executable relative to cwd
+- [#1753][1753] major change: less unconditional imports in pwnlib
+- [#1776][1776] mips: do not use $t0 temporary variable in dupio
+- [#1846][1846] support launching GDB in more different terminals
+
+[1429]: https://github.com/Gallopsled/pwntools/pull/1429
+[1566]: https://github.com/Gallopsled/pwntools/pull/1566
+[1652]: https://github.com/Gallopsled/pwntools/pull/1652
+[1739]: https://github.com/Gallopsled/pwntools/pull/1739
+[1746]: https://github.com/Gallopsled/pwntools/pull/1746
+[1751]: https://github.com/Gallopsled/pwntools/pull/1751
+[1753]: https://github.com/Gallopsled/pwntools/pull/1753
+[1776]: https://github.com/Gallopsled/pwntools/pull/1776
+[1846]: https://github.com/Gallopsled/pwntools/pull/1846
+
+## 4.5.1
+
+- [#1902][1902] Always specify -F and -P for tmux in `run_in_new_terminal`
+
+[1902]: https://github.com/Gallopsled/pwntools/pull/1902
+
+## 4.5.0
+
+- [#1261][1261] Misc `run_in_new_terminal` improvements (notably gdb terminated by default)
+- [#1695][1695] Allow using GDB Python API
+- [#1735][1735] Python 3.9 support in safeeval
+- [#1738][1738] Which function support custom search path
+  - process also looks now at `env['PATH']` to find the path for the executable
+- [#1742][1742] New `baremetal` os to debug binaries executed with qemu-system-$(arch)
+- [#1757][1757] update cache directories
+- [#1758][1758] Remove eval from cli
+- [#1780][1780] Re-add Python2 to the official Dockerfile
+- [#1941][1941] Disable all Android tests, `pwnlib.adb` is no longer supported in CI
+- [#1811][1811] Remove unnecessary `pwn.toplevel.__all__`
+- [#1827][1827] Support `$XDG_CONFIG_HOME` dir for `pwn.conf`
+- [#1841][1841] Add colored_traceback
+- [#1839][1839] run_in_new_terminal now creates a runner script if given a list or tuple
+- [#1833][1833] Add pwnlib.filesystem module
+- [#1852][1852] Fix `atexit` on Python 3
+- [#1883][1883] ROP gadget verifier accounts for 2 character registers
+
+[1261]: https://github.com/Gallopsled/pwntools/pull/1261
+[1695]: https://github.com/Gallopsled/pwntools/pull/1695
+[1735]: https://github.com/Gallopsled/pwntools/pull/1735
+[1738]: https://github.com/Gallopsled/pwntools/pull/1738
+[1742]: https://github.com/Gallopsled/pwntools/pull/1742
+[1757]: https://github.com/Gallopsled/pwntools/pull/1757
+[1758]: https://github.com/Gallopsled/pwntools/pull/1758
+[1780]: https://github.com/Gallopsled/pwntools/pull/1780
+[1941]: https://github.com/Gallopsled/pwntools/pull/1941
+[1811]: https://github.com/Gallopsled/pwntools/pull/1811
+[1827]: https://github.com/Gallopsled/pwntools/pull/1827
+[1841]: https://github.com/Gallopsled/pwntools/pull/1841
+[1839]: https://github.com/Gallopsled/pwntools/pull/1839
+[1833]:  https://github.com/Gallopsled/pwntools/pull/1833
+[1852]: https://github.com/Gallopsled/pwntools/pull/1852
+[1883]: https://github.com/Gallopsled/pwntools/pull/1883
+
+## 4.4.0
+
+- [#1541][1541] Use `context.newline` for tubes by default
 - [#1602][1602] Fix bytes handling in ssh tubes
 - [#1606][1606] Fix `asm()` and `disasm()` for MSP430, S390
 - [#1616][1616] Fix `cyclic` cli for 64 bit integers
@@ -65,13 +169,20 @@ The table below shows which release corresponds to each branch, and what date th
 - [#1644][1644] Enable and support SNI for SSL-wrapped tubes
 - [#1651][1651] Make `pwn shellcraft` faster
 - [#1654][1654] Docker images (`pwntools/pwntools:stable` etc) now use Python3 by default, and includes assemblers for a few common architectures
-- [#1667][1667] Add i386 encoder `ascii_shellcode`
+- [#1667][1667] Add i386 encoder `ascii_shellcode` (Fixed docs in #1693)
 - Fix syscall instruction lists for SROP on `i386` and `amd64`
 - Fix migration to another ROP
 - [#1673][1673] Add `base=` argument to `ROP.chain()` and `ROP.dump()`
 - [#1675][1675] Gdbserver now correctly accepts multiple libraries in `LD_PRELOAD` and `LD_LIBRARY_PATH`
 - [#1678][1678] ROPGadget multibr
+- [#1682][1682] ROPGadget multibr fix
+- [#1687][1687] Actually import `requests` when doing `from pwn import *`
+- [#1688][1688] Add `__setattr__` and `__call__` interfaces to `ROP` for setting registers
+- [#1692][1692] Remove python2 shebangs where appropriate
+- [#1703][1703] Update libcdb buildid offsets for amd64 and i386
+- [#1704][1704] Try https://libc.rip/ for libcdb lookup
 
+[1541]: https://github.com/Gallopsled/pwntools/pull/1541
 [1602]: https://github.com/Gallopsled/pwntools/pull/1602
 [1606]: https://github.com/Gallopsled/pwntools/pull/1606
 [1616]: https://github.com/Gallopsled/pwntools/pull/1616
@@ -84,8 +195,20 @@ The table below shows which release corresponds to each branch, and what date th
 [1673]: https://github.com/Gallopsled/pwntools/pull/1673
 [1675]: https://github.com/Gallopsled/pwntools/pull/1675
 [1678]: https://github.com/Gallopsled/pwntools/pull/1678
+[1682]: https://github.com/Gallopsled/pwntools/pull/1679
+[1687]: https://github.com/Gallopsled/pwntools/pull/1687
+[1688]: https://github.com/Gallopsled/pwntools/pull/1688
+[1692]: https://github.com/Gallopsled/pwntools/pull/1692
+[1703]: https://github.com/Gallopsled/pwntools/pull/1703
+[1704]: https://github.com/Gallopsled/pwntools/pull/1704
 
-## 4.3.0 (`beta`)
+## 4.3.1
+
+- [#1732][1732] Fix shellcraft SSTI vulnerability (first major pwntools vuln!)
+
+[1732]: https://github.com/Gallopsled/pwntools/pull/1732
+
+## 4.3.0
 
 - [#1576][1576] Add `executable=` argument to `ELF.search`
 - [#1584][1584] Add `jmp_esp`/`jmp_rsp` attribute to `ROP`
@@ -109,33 +232,14 @@ The table below shows which release corresponds to each branch, and what date th
 [1564]: https://github.com/Gallopsled/pwntools/pull/1564
 [1621]: https://github.com/Gallopsled/pwntools/pull/1621
 
-## 4.3.0 (`beta`)
-
-- [#1576][1576] Add `executable=` argument to `ELF.search`
-- [#1584][1584] Add `jmp_esp`/`jmp_rsp` attribute to `ROP`
-- [#1592][1592] Fix over-verbose logging of process() environment
-- [#1593][1593] Colorize output of `pwn template`
-- [#1601][1601] Add `pwn version` command line tool
-- [#1605][1605] Add to `fiddling.hexdump` a way to suppress the total at the end
-- [#1613][1613] Permit `--password` for `pwn template`
-- [#1564][1564] Fix `asm()` and `disasm()` for PowerPC64, MIPS64, Sparc64
-- [#1621][1621] Permit negative values in flat() and fit()
-
-[1576]: https://github.com/Gallopsled/pwntools/pull/1576
-[1584]: https://github.com/Gallopsled/pwntools/pull/1584
-[1592]: https://github.com/Gallopsled/pwntools/pull/1592
-[1593]: https://github.com/Gallopsled/pwntools/pull/1593
-[1601]: https://github.com/Gallopsled/pwntools/pull/1601
-[1605]: https://github.com/Gallopsled/pwntools/pull/1605
-[1613]: https://github.com/Gallopsled/pwntools/pull/1613
-[1564]: https://github.com/Gallopsled/pwntools/pull/1564
-[1621]: https://github.com/Gallopsled/pwntools/pull/1621
-
-## 4.2.1 (`stable`)
+## 4.2.1
 
 - [#1625][1625] GDB now properly loads executables with QEMU
+- [#1663][1663] Change lookup algorithm of `adb.which`
+- [#1699][1699] Fix broken linux shellcraft templates
 
 [1625]: https://github.com/Gallopsled/pwntools/pull/1625
+[1699]: https://github.com/Gallopsled/pwntools/pull/1699
 
 ## 4.2.0
 
@@ -202,7 +306,7 @@ The table below shows which release corresponds to each branch, and what date th
 [1001]: https://github.com/Gallopsled/pwntools/pull/1001
 [1389]: https://github.com/Gallopsled/pwntools/pull/1389
 [1241]: https://github.com/Gallopsled/pwntools/pull/1241
-[1218]: https://github.com/Gallopsled/pwntools/pull/1218  
+[1218]: https://github.com/Gallopsled/pwntools/pull/1218
 
 ## 4.0.1
 
